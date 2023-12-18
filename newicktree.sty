@@ -27,7 +27,6 @@
 
 
 
-
 \ProvidesPackage{newicktree}[2004/02/22]
 
 \NeedsTeXFormat{LaTeX2e}[1994/01/01]
@@ -48,6 +47,7 @@
 \def\NT@treesepset{\psset{treesep=0.75cm}}
 \def\NT@contempspecial{\relax}
 \def\NT@contempspecialend{\relax}
+\def\NT@branchcolor{black}
 
 %Now the commands to build up / set arguments..
 
@@ -66,9 +66,50 @@
 
 %Now the tree drawing routines
 
-\def\NT@displaytree#1#2#3#4%
+% #1: leaf node name
+% #2: branch length
+% #3: internal node name????
+% #4: node color
+% #5: node shape
+
+\def\NT@displaytree#1#2#3#4#5#6#7%
 {%
-\def\NT@bv{#4}%
+\def\NT@bv{}
+
+\ifx#4\relax
+	\def\NT@branchname{}
+\else%
+	\def\NT@branchname{#4}
+\fi
+
+\ifx#5\relax
+	\def\NT@branchcolor{black}
+\else%
+	\def\NT@branchcolor{#5}
+\fi
+
+\ifx#6\relax
+	\def\NT@nodecolor{black}
+\else%
+	\def\NT@nodecolor{#6}
+\fi
+
+\ifx#7\relax
+	\def\NT@nodeshape{\NT@node}
+\else%
+	\def\NT@nodeshape{#7}
+\fi
+
+% \Tdot 
+% \Tc 		\Tc[]{.1}~{}
+% \TC		\TC[]~{}
+% \Tf		\Tf[]~{}
+% \TCircle	\TCircle[]{} 		need to specify radius
+% \Tcircle	\Tcircle[]{}
+% \Ttri		\Ttri[]{}
+% \Toval	\Toval[]{}
+% \Tdia		\Tdia[]{}
+
 \def\NT@length{\NT@getnumber #2,f\end}%
 \begingroup%
 \dimen21=\dimen20%
@@ -81,13 +122,41 @@
 \advance\dimen0 by\dimen21%
 \skiplevel[levelsep=\NT@numlength,tnsep=1ex]{\pstree[levelsep=0]{\NT@node~{\NT@labelmodifier #3}\NT@displaybootval\NT@displaylength}{\NT@internalpstree#1;}}%
 \else %
-\skiplevel[levelsep=\NT@numlength,tnsep=\NT@curtnsep]{\NT@node~{\NT@labelmodifier #1#3}\nbput[nrot=0]{\NT@bootmodifier #4}\NT@displaylength}%
+
+\def\NT@nodestyle{\NT@nodeshape[%
+	tnpos=b,%
+	fillcolor=\NT@nodecolor,%
+	fillstyle=solid%
+	% edge={\ncangle[linecolor=\NT@branchcolor, armB=0,angleA=\NT@angleA,angleB=\NT@angleB,tpos=.1,nrot=:U] }%
+]}
+
+\def\tilda##1{##1~{{\NT@labelmodifier #1#3}}}
+\def\tildarad##1{##1{.1}~{{\NT@labelmodifier #1#3}}}
+\def\notilda##1{##1{{\NT@labelmodifier #1#3}}}
+
+\ifx#7\relax
+	\def\NT@drawnode{\tilda\NT@nodeshape}
+\else%
+	\ifx#7\TC \def\NT@drawnode{\tilda\NT@nodestyle}\fi
+	\ifx#7\Tc \def\NT@drawnode{\tildarad\NT@nodestyle}\fi
+	\ifx#7\Tf \def\NT@drawnode{\tilda\NT@nodestyle}\fi
+	\ifx#7\Tcircle \def\NT@drawnode{\notilda\NT@nodestyle}\fi
+	\ifx#7\TCircle \def\NT@drawnode{\notilda\NT@nodestyle}\fi
+	\ifx#7\Ttri \def\NT@drawnode{\notilda\NT@nodestyle}\fi
+	\ifx#7\Toval \def\NT@drawnode{\notilda\NT@nodestyle}\fi
+	\ifx#7\Tdia \def\NT@drawnode{\notilda\NT@nodestyle}\fi
+\fi
+
+\skiplevel[levelsep=\NT@numlength,tnsep=\NT@curtnsep]{\NT@drawnode \nbput[nrot=0]{\NT@bootmodifier \NT@branchname} \NT@displaylength}%
+% \skiplevel[levelsep=\NT@numlength,tnsep=\NT@curtnsep]{\NT@nodestyle \NT@treenodelabel { \NT@labelmodifier #1#3} \nbput[nrot=0]{\NT@bootmodifier \NT@branchname} \NT@displaylength}%
+
 \fi%
 \endgroup%
 \newif\ifdistcomma%
 \NT@scanfordistcomma#2\end%
 \ifdistcomma\NT@internaladditionaltreeout#2;\else\relax\fi%
 }
+
 \newif\ifcurtn
 \def\NT@curtnsep{\ifcurtn4ex\global\curtnfalse\else 1.5ex\global\curtntrue\fi}
 
@@ -96,15 +165,22 @@
 \def\NT@scanforcolon#1{\ifx\end#1\let\next=\relax\else\ifx:#1\colontrue\fi\let\next=\NT@scanforcolon\fi\next}
 
 \def\NT@scanforsquare#1{%
-\ifx\end#1\let\next=\relax%
-\else%
-\ifx,#1\commatrue%
-\else%
-\ifx[#1\ifcomma\relax\else\squaretrue\fi\fi%
-\fi%
-\let\next=\NT@scanforsquare%
-\fi%
-\next
+	\ifx\end#1
+		\let\next=\relax%
+	\else%
+		\ifx,#1
+			\commatrue%
+		\else%
+			\ifx[#1
+				\ifcomma\relax%
+			\else
+				\squaretrue
+			\fi
+		\fi%
+	\fi%
+	\let\next=\NT@scanforsquare%
+	\fi%
+	\next
 }
 
 \def\NT@internaladditionaltree#1,#2#3:#4;{\NT@displaytree{#2}{#4}{#3}}
@@ -118,14 +194,23 @@
 \ifsquare\NT@makesubtreebootout#1\end%
 \else\ifcomma\NT@makesubtreebootin#1\relax\end\else\NT@makesubtreebootinlast#1\end\fi\fi}
 
-\def\NT@makesubtreebootinlast#1#2:#3\end{\NT@displaytree{#1}{#3}{#2}{\relax}}
-\def\NT@makesubtreebootin#1#2:#3\relax\end{\NT@displaytree{#1}{#3}{#2}{\relax}}
-\def\NT@makesubtreebootout#1#2:#3[#4]#5\end{\NT@displaytree{#1}{#3#5}{#2}{#4}}
+\def\NT@makesubtreebootinlast#1#2:#3\end{%
+	\NT@displaytree{#1}{#3}{#2}{\relax}{\relax}{\relax}{\relax}
+}
+
+\def\NT@makesubtreebootin#1#2:#3\relax\end{%
+	\NT@displaytree{#1}{#3}{#2}{\relax}{\relax}{\relax}{\relax}
+}
+
+\def\NT@makesubtreebootout#1#2:#3[bn=#4,bc=#5,nc=#6,ns=#7]#8\end{%
+	\NT@displaytree{#1}{#3#8}{#2}{#4}{#5}{#6}{#7}
+}
+
 \def\NT@nocolon{%
 \nobranchlengths%
-\def\NT@makesubtreebootinlast##1##2\end{\NT@displaytree{##1}{1}{##2}{\relax}}%
-\def\NT@makesubtreebootin##1##2,##3\end{\NT@displaytree{##1}{1,##3}{##2}{\relax}}%
-\def\NT@makesubtreebootout##1##2[##3]##4\end{\NT@displaytree{##1}{1##4}{##2}{##3}}}
+\def\NT@makesubtreebootinlast##1##2\end{\NT@displaytree{##1}{1}{##2}{\relax}{\relax}{\relax}{\relax}}%
+\def\NT@makesubtreebootin##1##2,##3\end{\NT@displaytree{##1}{1,##3}{##2}{\relax}{\relax}{\relax}{\relax}}%
+\def\NT@makesubtreebootout##1##2[bn=##3,bc=##4,nc=##5,ns=##6]##7\end{\NT@displaytree{##1}{1##7}{##2}{##3}{##4}{##5}{##6}}}
 
 
 \def\NT@checkforcolon#1;{\NT@scanforcolon#1\end}
@@ -142,7 +227,8 @@
 	\NT@treesepset\NT@latertreesepset
 	\NT@unitcommand
 	\NT@branchstylecommand
-	\pstree[levelsep=0pt,showbbox=false,xbbh=3ex,xbbd=2ex,tnsep=2ex]{\NT@node\nput{\NT@angleB}{\pssucc}{\NT@labelmodifier#2}}{\NT@internalpstree#1}
+	% node here is the root node 
+	\pstree[levelsep=0pt,showbbox=false,xbbh=3ex,xbbd=2ex,tnsep=2ex]{\NT@node \nput{\NT@angleB}{\pssucc}{\NT@labelmodifier#2}}{\NT@internalpstree#1}
 	\endgroup
 }
 
@@ -165,7 +251,7 @@
 	\def\lengthlabelformat##1{\def\NT@lengthmodifier{##1}}
 	\def\Lengthlabelformat##1{\gdef\NT@lengthmodifier{##1}}
 	\def\Nodemarkers{\gdef\NT@node{\Tdot}}
-	\def\nodemarkers{\def\NT@node{\Tdot}}
+	\def\nodemarkers{\def\NT@node{\Tp}}
 	\def\Nonodemarkers{\gdef\NT@node{\Tp}}
 	\def\nonodemarkers{\def\NT@node{\Tp}}
 	\def\uptree{
@@ -283,22 +369,22 @@
 		\gdef\NT@displaybootval{\relax}
 		}
 	\def\curvedbranches{
-		\def\NT@branchstylecommand{\renewcommand\psedge{\nccurve[angleA=\NT@angleAc,angleB=\NT@angleB,nrot=:U]}}
+		\def\NT@branchstylecommand{\renewcommand\psedge{\nccurve[linecolor=\NT@branchcolor,angleA=\NT@angleAc,angleB=\NT@angleB,nrot=:U]}}
 		}
 	\def\angledbranches{
-		\def\NT@branchstylecommand{\renewcommand\psedge{\ncangle[armB=0,angleA=\NT@angleA,angleB=\NT@angleB,nrot=:U]}}
+		\def\NT@branchstylecommand{\renewcommand\psedge{\ncangle[linecolor=\NT@branchcolor,armB=0,angleA=\NT@angleA,angleB=\NT@angleB,nrot=:U]}}
 		}
 	\def\straightbranches{
-		\def\NT@branchstylecommand{\renewcommand\psedge{\ncline}}
+		\def\NT@branchstylecommand{\renewcommand\psedge{\ncline[linecolor=\NT@branchcolor,]}}
 		}
 	\def\Curvedbranches{
-		\gdef\NT@branchstylecommand{\renewcommand\psedge{\nccurve[angleA=\NT@angleAc,angleB=\NT@angleB,nrot=:U]}}
+		\gdef\NT@branchstylecommand{\renewcommand\psedge{\nccurve[linecolor=\NT@branchcolor,angleA=\NT@angleAc,angleB=\NT@angleB,nrot=:U]}}
 		}
 	\def\Angledbranches{
-		\gdef\NT@branchstylecommand{\renewcommand\psedge{\ncangle[armB=0,angleA=\NT@angleA,angleB=\NT@angleB,tpos=.1,nrot=:U]}}
+		\gdef\NT@branchstylecommand{\renewcommand\psedge{\ncangle[linecolor=\NT@branchcolor,armB=0,angleA=\NT@angleA,angleB=\NT@angleB,tpos=.1,nrot=:U]}}
 		}
 	\def\Straightbranches{
-		\gdef\NT@branchstylecommand{\renewcommand\psedge{\ncline}}
+		\gdef\NT@branchstylecommand{\renewcommand\psedge{\ncline[linecolor=\NT@branchcolor,]}}
 		}
 	\def\scalebar{\relax}
 	\renewcommand{\scalebar}[1][1]{{\NT@unitcommand\pstree[treemode=R,xbbd=4ex,xbbh=1ex,levelsep=##1]{\Tp}{\Tp\tbput{\NT@lengthmodifier ##1}}}}
@@ -320,5 +406,6 @@
 \Showbootstrapvalues
 \Levellabels
 \Angledbranches
+% \Straightbranches
 \Nodemarkers
 \end{newicktree}
